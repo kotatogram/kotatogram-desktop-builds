@@ -106,6 +106,7 @@ jobs:
       - name: Generate cache key.
         shell: bash
         run: |
+          curl -o $LibrariesPath/tg_owt-version.json https://api.github.com/repos/desktop-app/tg_owt/git/refs/heads/master
           echo $MANUAL_CACHING >> CACHE_KEY.txt
           if [ "$AUTO_CACHING" == "1" ]; then
             thisFile=buildscripts/.github/workflows/win-release.yml
@@ -130,7 +131,7 @@ jobs:
         shell: bash
         run: |
           echo "Find any version of Python 2."
-          p=`ls /c/hostedtoolcache/windows/python | grep 2 | tail -1`
+          p=`ls /c/hostedtoolcache/windows/python | grep "^2" | tail -1`
           if [ -z "$p" ]; then
             echo "Python 2 is not found."
             exit 1
@@ -327,7 +328,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ${{ env.LibrariesPath }}/tg_owt
-          key: ${{ runner.OS }}-webrtc-${{ env.CACHE_KEY }}
+          key: ${{ runner.OS }}-webrtc-${{ env.CACHE_KEY }}-${{ hashFiles('**/tg_owt-version.json') }}
       - name: WebRTC.
         if: steps.cache-webrtc.outputs.cache-hit != 'true'
         run: |
@@ -374,6 +375,7 @@ jobs:
           -DDESKTOP_APP_DISABLE_AUTOUPDATE=%UPDDEFINE% ^
           -DKTGDESKTOP_ENABLE_PACKER=%PACKERDEFINE% ^
           -DDESKTOP_APP_USE_PACKAGED=OFF ^
+          -DDESKTOP_APP_NO_PDB=ON ^
           -DCMAKE_SYSTEM_VERSION=%SDK%
 
           call vcvars32.bat
