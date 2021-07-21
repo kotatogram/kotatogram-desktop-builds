@@ -42,9 +42,9 @@ module.exports = ({github, context, currentBuild}) => {
 	}
 
 	function parseBuild(s) {
-		let pattern = /^(?:builds?|platforms?|OS(?:es)?):\s*(?:(appimage|linux|win(?:dows)?|mac(?:os)?)(?:,\s*(appimage|linux|win(?:dows)?|mac(?:os)?))*)$/gmi;
+		let pattern = /^(?:builds?|platforms?|OS(?:es)?):\s*(?:(linux|win(?:dows)?|mac(?:os)?)(?:,\s*(linux|win(?:dows)?|mac(?:os)?))*)$/gmi;
 		let matches = pattern.exec(s);
-		let all = ["appimage", "windows", "mac"];
+		let all = ["linux", "windows", "mac"];
 		if (!matches || matches.length < 1) return all;
 
 		let builds = [];
@@ -52,7 +52,7 @@ module.exports = ({github, context, currentBuild}) => {
 			if (!matches[i]) continue;
 
 			switch (matches[i].toLowerCase()) {
-				case "appimage":
+				case "linux":
 				case "windows":
 				case "mac":
 					builds.push(matches[i].toLowerCase());
@@ -60,10 +60,6 @@ module.exports = ({github, context, currentBuild}) => {
 
 				case "win":
 					builds.push("windows");
-					break;
-
-				case "linux":
-					builds.push("appimage");
 					break;
 
 				case "macos":

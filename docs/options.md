@@ -54,7 +54,7 @@ Aliases: `build`, `platform`, `platforms`, `os`, `oses`.
 Specfies a platform to build.
 
 Values:
-* `appimage`/`linux` – AppImage build 
+* `linux` – Linux build 
 * `win`/`windows` – Windows build
 
 This option supports multiple values, separated by comma, like this:

@@ -1,4 +1,4 @@
-name: Release AppImage.
+name: Release Linux.
 
 on: [push]
 
@@ -27,7 +27,7 @@ jobs:
           github-token: ${{ secrets.RELEASE_TOKEN }}
           script: |
             const path = require('path');
-            const currentBuild = "appimage";
+            const currentBuild = "linux";
             const scriptPath = path.resolve('./scripts/option_parser.js');
             require(scriptPath)({github, context, currentBuild});
 
