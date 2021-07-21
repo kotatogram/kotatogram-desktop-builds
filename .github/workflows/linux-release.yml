@@ -202,8 +202,8 @@ jobs:
 
       - name: Setting up updater keys.
         if: >
-          needs.check.outputs.update
-          && needs.check.outputs.packer
+          needs.check.outputs.update == 'true'
+          && needs.check.outputs.packer == 'true'
         env:
           PACKER_PRIVATE_KEY: ${{ secrets.PACKER_PRIVATE_KEY }}
           PACKER_PRIVATE_BETA_KEY: ${{ secrets.PACKER_PRIVATE_BETA_KEY }}
@@ -680,14 +680,14 @@ jobs:
       - name: Install dependencies for Telegram uploader.
         if: >
           env.ONLY_CACHE == 'false'
-          && needs.check.outputs.telegram
+          && needs.check.outputs.telegram == 'true'
         run: |
           python3 -m pip install telethon cryptg
 
       - name: Upload binary to Telegram.
         if: >
           env.ONLY_CACHE == 'false'
-          && needs.check.outputs.telegram
+          && needs.check.outputs.telegram == 'true'
         env:
           TELETHON_API_ID: ${{ secrets.TELETHON_API_ID }}
           TELETHON_API_HASH: ${{ secrets.TELETHON_API_HASH }}
