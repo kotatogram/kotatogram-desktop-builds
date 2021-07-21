@@ -46,7 +46,7 @@ jobs:
       OPENSSL_VER: "1_1_1"
       ONLY_CACHE: "false"
       MANUAL_CACHING: "2"
-      DOC_PATH: "docs/building-msvc.md"
+      DOC_PATH: "docs/building-win.md"
       REPO_NAME: "kotatogram-desktop"
       REPO_CHECKOUT_NAME: "kotatogram/kotatogram-desktop"
       AUTO_CACHING: "1"
@@ -116,6 +116,11 @@ jobs:
 
       - name: Choco installs.
         run: choco install --no-progress -y nasm yasm jom ninja
+
+      - name: NuGet sources.
+        run: |
+          nuget sources Disable -Name "Microsoft Visual Studio Offline Packages"
+          nuget sources Add -Source https://api.nuget.org/v3/index.json & exit 0
 
       - name: Patches.
         shell: bash
@@ -246,6 +251,17 @@ jobs:
           cd win32\VS2015
           msbuild -m opus.sln /property:Configuration=Release /property:Platform="Win32"
 
+      - name: Rnnoise.
+        shell: cmd
+        run: |
+          %VC%
+
+          git clone %GIT%/desktop-app/rnnoise.git
+          mkdir rnnoise\out
+          cd rnnoise\out
+          cmake -A Win32 ..
+          cmake --build . --config Debug
+
       - name: FFmpeg cache.
         id: cache-ffmpeg
         if: ${{ needs.check.outputs.cache }}
@@ -261,12 +277,39 @@ jobs:
 
           git clone %GIT%/FFmpeg/FFmpeg.git ffmpeg
           cd ffmpeg
-          git checkout release/4.2
+          git checkout release/4.4
           set CHERE_INVOKING=enabled_from_arguments
           set MSYS2_PATH_TYPE=inherit
           call c:\tools\msys64\usr\bin\bash --login ../patches/build_ffmpeg_win.sh
 
           rmdir /S /Q .git
+
+      - name: Angle cache.
+        id: cache-angle
+        uses: actions/cache@v2
+        with:
+          path: ${{ env.LibrariesPath }}/tg_angle
+          key: ${{ runner.OS }}-angle-${{ env.CACHE_KEY }}-${{ hashFiles('**/tg_angle-version.json') }}
+      - name: Angle.
+        if: steps.cache-angle.outputs.cache-hit != 'true'
+        run: |
+          %VC%
+
+          git clone --recursive %GIT%/desktop-app/tg_angle.git
+          mkdir tg_angle\out\Debug
+          cd tg_angle\out\Debug
+          cmake -G Ninja ^
+          -DCMAKE_BUILD_TYPE=Debug ^
+          -DTG_ANGLE_SPECIAL_TARGET=win64 ^
+          -DTG_ANGLE_ZLIB_INCLUDE_PATH=%cd%/../../../zlib ../..
+          ninja
+
+          :: Cleanup.
+          cd %LibrariesPath%\tg_angle
+          move out\Debug\tg_angle.lib tg_angle.lib
+          rmdir /S /Q out
+          mkdir out\Debug
+          move tg_angle.lib out\Debug\tg_angle.lib
 
       - name: Qt 5.15.2 cache.
         id: cache-qt
@@ -291,7 +334,12 @@ jobs:
           cd ..
 
           SET SSL=%LibrariesPath%\openssl_%OPENSSL_VER%
-          SET LIBS=libcrypto.lib Ws2_32.lib Gdi32.lib Advapi32.lib Crypt32.lib User32.lib
+          SET SSL_LIBS=libcrypto.lib Ws2_32.lib Gdi32.lib Advapi32.lib Crypt32.lib User32.lib
+
+          SET ANGLE=%LibrariesPath%\tg_angle
+          SET ANGLE_LIBS=d3d9.lib dxgi.lib dxguid.lib
+
+          SET ZLIB=%LibrariesPath%\zlib\contrib\vstudio\vc14\x86
 
           configure ^
           -prefix "%LibrariesPath%\Qt-%QT_VER%" ^
@@ -299,18 +347,29 @@ jobs:
           -opensource ^
           -confirm-license ^
           -static ^
-          -static-runtime -I "%SSL%\include" ^
-          -no-opengl ^
+          -static-runtime ^
+          -opengl es2 -no-angle ^
+          -I "%ANGLE%\include" ^
+          -D "GL_APICALL=" ^
+          QMAKE_LIBS_OPENGL_ES2_DEBUG="%ANGLE%\out\Debug\tg_angle.lib %ZLIB%\ZlibStatDebug\zlibstat.lib %ANGLE_LIBS%" ^
+          QMAKE_LIBS_OPENGL_ES2_RELEASE="%ANGLE%\out\Release\tg_angle.lib %ZLIB%\ZlibStatReleaseWithoutAsm\zlibstat.lib %ANGLE_LIBS%" ^
+          -egl ^
+          -D "EGLAPI=" ^
+          -D "DESKTOP_APP_QT_STATIC_ANGLE=" ^
+          QMAKE_LIBS_EGL_DEBUG="%ANGLE%\out\Debug\tg_angle.lib %ZLIB%\ZlibStatDebug\zlibstat.lib %ANGLE_LIBS% Gdi32.lib User32.lib" ^
+          QMAKE_LIBS_EGL_RELEASE="%ANGLE%\out\Release\tg_angle.lib %ZLIB%\ZlibStatReleaseWithoutAsm\zlibstat.lib %ANGLE_LIBS% Gdi32.lib User32.lib" ^
           -openssl-linked ^
-          OPENSSL_LIBS_DEBUG="%SSL%\out32.dbg\libssl.lib %SSL%\out32.dbg\%LIBS%" ^
-          OPENSSL_LIBS_RELEASE="%SSL%\out32\libssl.lib %SSL%\out32\%LIBS%" ^
+          -I "%SSL%\include" ^
+          OPENSSL_LIBS_DEBUG="%SSL%\out32.dbg\libssl.lib %SSL%\out32.dbg\%SSL_LIBS%" ^
+          OPENSSL_LIBS_RELEASE="%SSL%\out32\libssl.lib %SSL%\out32\%SSL_LIBS%" ^
+          -I "%LibrariesPath%\mozjpeg" ^
+          LIBJPEG_LIBS_DEBUG="%LibrariesPath%\mozjpeg\Debug\jpeg-static.lib" ^
+          LIBJPEG_LIBS_RELEASE="%LibrariesPath%\mozjpeg\Release\jpeg-static.lib" ^
           -mp ^
           -nomake examples ^
           -nomake tests ^
-          -platform win32-msvc ^
-          -I "%LibrariesPath%\mozjpeg" ^
-          LIBJPEG_LIBS_DEBUG="%LibrariesPath%\mozjpeg\Debug\jpeg-static.lib" ^
-          LIBJPEG_LIBS_RELEASE="%LibrariesPath%\mozjpeg\Release\jpeg-static.lib"
+          -platform win32-msvc
+
       - name: Qt 5.15.2 build.
         if: steps.cache-qt.outputs.cache-hit != 'true'
         run: |
@@ -340,6 +399,7 @@ jobs:
           cmake -G Ninja ^
           -DCMAKE_BUILD_TYPE=Release ^
           -DTG_OWT_SPECIAL_TARGET=win ^
+          -DTG_OWT_BUILD_AUDIO_BACKENDS=OFF ^
           -DTG_OWT_LIBJPEG_INCLUDE_PATH=%cd%/../../../mozjpeg ^
           -DTG_OWT_OPENSSL_INCLUDE_PATH=%cd%/../../../openssl_%OPENSSL_VER%/include ^
           -DTG_OWT_OPUS_INCLUDE_PATH=%cd%/../../../opus/include ^
@@ -370,6 +430,7 @@ jobs:
           if NOT "${{ needs.check.outputs.packer }}" == "true" set PACKERDEFINE="OFF"
 
           call configure.bat ^
+          -GNinja ^
           -DTDESKTOP_API_ID=%API_ID% ^
           -DTDESKTOP_API_HASH=%API_HASH% ^
           -DDESKTOP_APP_DISABLE_AUTOUPDATE=%UPDDEFINE% ^
