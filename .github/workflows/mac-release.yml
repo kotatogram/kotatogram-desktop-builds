@@ -69,7 +69,7 @@ jobs:
 
       - name: First set up.
         run: |
-          brew install cmake dav1d meson openal-soft openssl opus nasm ninja pkg-config python qt@5 yasm xz
+          brew install autoconf automake cmake meson openal-soft openssl opus nasm ninja pkg-config python qt@5 yasm xz
           sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
 
           xcodebuild -version > CACHE_KEY.txt
@@ -98,6 +98,17 @@ jobs:
           PACKER_PRIVATE_BETA_KEY: ${{ secrets.PACKER_PRIVATE_BETA_KEY }}
         run: python3 buildscripts/scripts/updater_keys.py
 
+      - name: Rnnoise.
+        run: |
+          cd $LibrariesPath
+
+          git clone --depth=1 https://gitlab.xiph.org/xiph/rnnoise.git
+          cd rnnoise
+          ./autogen.sh
+          ./configure --disable-examples --disable-doc
+          make -j$(sysctl -n hw.logicalcpu)
+          make install
+
       - name: FFmpeg cache.
         id: cache-ffmpeg
         uses: actions/cache@v2
@@ -109,7 +120,7 @@ jobs:
         run: |
           cd $LibrariesPath
 
-          git clone --branch release/4.2 $GIT/FFmpeg/FFmpeg ffmpeg
+          git clone --branch release/4.4 $GIT/FFmpeg/FFmpeg ffmpeg
           cd ffmpeg
           ./configure \
           --prefix=/usr/local/ffmpeg \
@@ -118,103 +129,18 @@ jobs:
           --disable-doc \
           --disable-network \
           --disable-autodetect \
-          --disable-everything \
+          --disable-encoders \
+          --disable-muxers \
+          --disable-bsfs \
+          --disable-protocols \
+          --disable-devices \
+          --disable-filters \
           --disable-iconv \
           --enable-audiotoolbox \
           --enable-videotoolbox \
-          --enable-libdav1d \
           --enable-libopus \
           --enable-protocol=file \
-          --enable-hwaccel=h264_videotoolbox \
-          --enable-hwaccel=hevc_videotoolbox \
-          --enable-hwaccel=mpeg1_videotoolbox \
-          --enable-hwaccel=mpeg2_videotoolbox \
-          --enable-hwaccel=mpeg4_videotoolbox \
-          --enable-decoder=aac \
-          --enable-decoder=aac_at \
-          --enable-decoder=aac_fixed \
-          --enable-decoder=aac_latm \
-          --enable-decoder=aasc \
-          --enable-decoder=alac \
-          --enable-decoder=alac_at \
-          --enable-decoder=flac \
-          --enable-decoder=gif \
-          --enable-decoder=h264 \
-          --enable-decoder=hevc \
-          --enable-decoder=libdav1d \
-          --enable-decoder=mp1 \
-          --enable-decoder=mp1float \
-          --enable-decoder=mp2 \
-          --enable-decoder=mp2float \
-          --enable-decoder=mp3 \
-          --enable-decoder=mp3adu \
-          --enable-decoder=mp3adufloat \
-          --enable-decoder=mp3float \
-          --enable-decoder=mp3on4 \
-          --enable-decoder=mp3on4float \
-          --enable-decoder=mpeg4 \
-          --enable-decoder=msmpeg4v2 \
-          --enable-decoder=msmpeg4v3 \
-          --enable-decoder=opus \
-          --enable-decoder=pcm_alaw \
-          --enable-decoder=pcm_alaw_at \
-          --enable-decoder=pcm_f32be \
-          --enable-decoder=pcm_f32le \
-          --enable-decoder=pcm_f64be \
-          --enable-decoder=pcm_f64le \
-          --enable-decoder=pcm_lxf \
-          --enable-decoder=pcm_mulaw \
-          --enable-decoder=pcm_mulaw_at \
-          --enable-decoder=pcm_s16be \
-          --enable-decoder=pcm_s16be_planar \
-          --enable-decoder=pcm_s16le \
-          --enable-decoder=pcm_s16le_planar \
-          --enable-decoder=pcm_s24be \
-          --enable-decoder=pcm_s24daud \
-          --enable-decoder=pcm_s24le \
-          --enable-decoder=pcm_s24le_planar \
-          --enable-decoder=pcm_s32be \
-          --enable-decoder=pcm_s32le \
-          --enable-decoder=pcm_s32le_planar \
-          --enable-decoder=pcm_s64be \
-          --enable-decoder=pcm_s64le \
-          --enable-decoder=pcm_s8 \
-          --enable-decoder=pcm_s8_planar \
-          --enable-decoder=pcm_u16be \
-          --enable-decoder=pcm_u16le \
-          --enable-decoder=pcm_u24be \
-          --enable-decoder=pcm_u24le \
-          --enable-decoder=pcm_u32be \
-          --enable-decoder=pcm_u32le \
-          --enable-decoder=pcm_u8 \
-          --enable-decoder=pcm_zork \
-          --enable-decoder=vorbis \
-          --enable-decoder=wavpack \
-          --enable-decoder=wmalossless \
-          --enable-decoder=wmapro \
-          --enable-decoder=wmav1 \
-          --enable-decoder=wmav2 \
-          --enable-decoder=wmavoice \
           --enable-encoder=libopus \
-          --enable-parser=aac \
-          --enable-parser=aac_latm \
-          --enable-parser=flac \
-          --enable-parser=h264 \
-          --enable-parser=hevc \
-          --enable-parser=mpeg4video \
-          --enable-parser=mpegaudio \
-          --enable-parser=opus \
-          --enable-parser=vorbis \
-          --enable-demuxer=aac \
-          --enable-demuxer=flac \
-          --enable-demuxer=gif \
-          --enable-demuxer=h264 \
-          --enable-demuxer=hevc \
-          --enable-demuxer=m4v \
-          --enable-demuxer=mov \
-          --enable-demuxer=mp3 \
-          --enable-demuxer=ogg \
-          --enable-demuxer=wav \
           --enable-muxer=ogg \
           --enable-muxer=opus
 
@@ -245,6 +171,7 @@ jobs:
           -GNinja \
           -DCMAKE_BUILD_TYPE=Release \
           -DBUILD_SHARED_LIBS=OFF \
+          -DTG_OWT_BUILD_AUDIO_BACKENDS=OFF \
           -DTG_OWT_PACKAGED_BUILD_FFMPEG_STATIC=ON
 
           cmake --build build -j$(sysctl -n hw.logicalcpu)
@@ -256,7 +183,7 @@ jobs:
           API_HASH: ${{ secrets.API_HASH }}
           tg_owt_DIR: ${{ env.LibrariesPath }}/tg_owt/build
         run: |
-          cd $REPO_NAME/Telegram
+          cd $REPO_NAME
 
           UPDDEFINE="OFF"
           ${{ needs.check.outputs.update }} || UPDDEFINE="ON"
@@ -264,7 +191,8 @@ jobs:
           PACKERDEFINE="ON"
           ${{ needs.check.outputs.packer }} || PACKERDEFINE="OFF"
 
-          ./configure.sh \
+          cmake -Bbuild . \
+          -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_FIND_FRAMEWORK=LAST \
           -DTDESKTOP_API_ID=${API_ID} \
           -DTDESKTOP_API_HASH=${API_HASH} \
@@ -273,9 +201,9 @@ jobs:
           -DDESKTOP_APP_USE_PACKAGED_LAZY=ON \
           -DDESKTOP_APP_USE_PACKAGED_FFMPEG_STATIC=ON
 
-          cmake --build ../out --config Release
+          cmake --build build -j$(sysctl -n hw.logicalcpu)
 
-          cd ../out/Release
+          cd build
           macdeployqt Kotatogram.app
           codesign --remove-signature Kotatogram.app
 
@@ -291,7 +219,7 @@ jobs:
         if: env.ONLY_CACHE == 'false'
         uses: actions/upload-artifact@v2
         with:
-          path: ./${{ env.REPO_NAME }}/out/Release/${{ env.ARTIFACT_NAME }}
+          path: ./${{ env.REPO_NAME }}/build/${{ env.ARTIFACT_NAME }}
           name: Binary
 
       - name: Install dependencies for Telegram uploader.
@@ -312,7 +240,7 @@ jobs:
         run: >
           python3 buildscripts/scripts/uploader.py
           "@ktgbuilds"
-          "${{ env.REPO_NAME }}/out/Release/${{ env.ARTIFACT_NAME }}"
+          "${{ env.REPO_NAME }}/build/${{ env.ARTIFACT_NAME }}"
           "${{ needs.check.outputs.description }}"
 
       - name: Package update.
@@ -323,8 +251,8 @@ jobs:
         run: |
           cd $REPO_NAME
 
-          ./out/Release/Packer -version ${{ env.VERSION_NUM }}${{ env.PACKER_BETA }} \
-          -path out/Release/dmgsrc/Kotatogram.app \
+          ./build/Packer -version ${{ env.VERSION_NUM }}${{ env.PACKER_BETA }} \
+          -path build/dmgsrc/Kotatogram.app \
           -target mac
 
           tar -caf tmacupd${{ env.VERSION_NUM }}.tar.xz tmacupd${{ env.VERSION_NUM }}
