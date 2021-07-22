@@ -194,6 +194,7 @@ jobs:
           cmake -Bbuild . \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_FIND_FRAMEWORK=LAST \
+          -DCMAKE_EXE_LINKER_FLAGS="-s" \
           -DTDESKTOP_API_ID=${API_ID} \
           -DTDESKTOP_API_HASH=${API_HASH} \
           -DDESKTOP_APP_DISABLE_AUTOUPDATE=${UPDDEFINE} \
