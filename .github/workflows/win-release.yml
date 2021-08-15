@@ -421,7 +421,8 @@ jobs:
           API_ID: ${{ secrets.API_ID }}
           API_HASH: ${{ secrets.API_HASH }}
         run: |
-          cd %REPO_NAME%\Telegram
+          cd %REPO_NAME%
+          call vcvars32.bat
 
           set UPDDEFINE="OFF"
           if NOT "${{ needs.check.outputs.update }}" == "true" set UPDDEFINE="ON"
@@ -429,8 +430,11 @@ jobs:
           set PACKERDEFINE="ON"
           if NOT "${{ needs.check.outputs.packer }}" == "true" set PACKERDEFINE="OFF"
 
-          call configure.bat ^
+          cmake -B build . ^
           -GNinja ^
+          -DCMAKE_BUILD_TYPE=Release ^
+          -DCMAKE_C_COMPILER=cl ^
+          -DCMAKE_CXX_COMPILER=cl ^
           -DTDESKTOP_API_ID=%API_ID% ^
           -DTDESKTOP_API_HASH=%API_HASH% ^
           -DDESKTOP_APP_DISABLE_AUTOUPDATE=%UPDDEFINE% ^
@@ -439,8 +443,7 @@ jobs:
           -DDESKTOP_APP_NO_PDB=ON ^
           -DCMAKE_SYSTEM_VERSION=%SDK%
 
-          call vcvars32.bat
-          cmake --build ../out --config Release
+          cmake --build build
 
       - name: Move artifact.
         if: env.ONLY_CACHE == 'false'
