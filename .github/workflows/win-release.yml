@@ -261,7 +261,7 @@ jobs:
           mkdir rnnoise\out
           cd rnnoise\out
           cmake -A Win32 ..
-          cmake --build . --config Debug
+          cmake --build . --config Release
 
       - name: FFmpeg cache.
         id: cache-ffmpeg
@@ -297,20 +297,20 @@ jobs:
           %VC%
 
           git clone --recursive %GIT%/desktop-app/tg_angle.git
-          mkdir tg_angle\out\Debug
-          cd tg_angle\out\Debug
+          mkdir tg_angle\out\Release
+          cd tg_angle\out\Release
           cmake -G Ninja ^
-          -DCMAKE_BUILD_TYPE=Debug ^
+          -DCMAKE_BUILD_TYPE=Release ^
           -DTG_ANGLE_SPECIAL_TARGET=win64 ^
           -DTG_ANGLE_ZLIB_INCLUDE_PATH=%cd%/../../../zlib ../..
           ninja
 
           :: Cleanup.
           cd %LibrariesPath%\tg_angle
-          move out\Debug\tg_angle.lib tg_angle.lib
+          move out\Release\tg_angle.lib tg_angle.lib
           rmdir /S /Q out
-          mkdir out\Debug
-          move tg_angle.lib out\Debug\tg_angle.lib
+          mkdir out\Release
+          move tg_angle.lib out\Release\tg_angle.lib
 
       - name: Qt 5.15.2 cache.
         id: cache-qt
