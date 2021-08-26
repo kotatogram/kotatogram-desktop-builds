@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-_VERSION=$(cat "${REPO_NAME}/Telegram/SourceFiles/kotato/version.h" | grep "AppKotatoVersion " | awk '{print $5}' | sed 's/.$//')
-_VERSIONSTR=$(cat "${REPO_NAME}/Telegram/SourceFiles/kotato/version.h" | grep "AppKotatoVersionStr " | awk '{print $5}' | sed 's/.$//' | cut -d'"' -f 2)
-_ISBETA=$(cat "${REPO_NAME}/Telegram/SourceFiles/core/version.h" | grep "AppBetaVersion " | awk '{print $5}' | sed 's/.$//')
+_VERSION=$(cat "${REPO_NAME}/Telegram/SourceFiles/kotato/kotato_version.h" | grep "AppKotatoVersion " | awk '{print $5}' | sed 's/.$//')
+_VERSIONSTR=$(cat "${REPO_NAME}/Telegram/SourceFiles/kotato/kotato_version.h" | grep "AppKotatoVersionStr " | awk '{print $5}' | sed 's/.$//' | cut -d'"' -f 2)
+_ISBETA=$(cat "${REPO_NAME}/Telegram/SourceFiles/kotato/kotato_version.h" | grep "AppKotatoBetaVersion " | awk '{print $5}' | sed 's/.$//')
 _BETA_SWITCH=""
 _VERSIONSTRFULL=${_VERSIONSTR}
 test "$_ISBETA" != "true" || _BETA_SWITCH=" -beta"
