@@ -633,7 +633,7 @@ jobs:
           -extra-plugins=bearer,iconengines,imageformats,platforminputcontexts,platforms/libqwayland-egl.so,platforms/libqwayland-generic.so,platformthemes/libqgtk3.so,platformthemes/libqxdgdesktopportal.so,platformthemes/libqt5ct.so,styles/libqt5ct-style.so,styles/libkvantum.so,wayland-decoration-client,wayland-graphics-integration-client,wayland-shell-integration
 
           appimage_name=$(echo Kotatogram_Desktop*.AppImage)
-          artifact_name=${{ env.VERSION_STR }}.tar.xz
+          artifact_name=${{ env.VERSION_STR }}-appimage.tar.xz
           echo "APPIMAGE_NAME=$appimage_name" >> $GITHUB_ENV
           echo "ARTIFACT_NAME=$artifact_name" >> $GITHUB_ENV
 
@@ -696,7 +696,7 @@ jobs:
           python3 buildscripts/scripts/uploader.py
           "@ktgbuilds"
           "${{ env.REPO_NAME }}/artifact/${{ env.ARTIFACT_NAME }}"
-          "${{ needs.check.outputs.description }}"
+          "#AppImage"
 
       - name: Package update.
         if: >

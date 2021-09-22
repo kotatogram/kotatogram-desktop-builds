@@ -209,7 +209,7 @@ jobs:
           codesign --remove-signature Kotatogram.app
 
           tag_name=${{ needs.check.outputs.display_version }}
-          artifact_name=${{ env.VERSION_STR }}.dmg
+          artifact_name=${{ env.VERSION_STR }}-macos.dmg
           echo "ARTIFACT_NAME=$artifact_name" >> $GITHUB_ENV
 
           mkdir dmgsrc
@@ -242,7 +242,7 @@ jobs:
           python3 buildscripts/scripts/uploader.py
           "@ktgbuilds"
           "${{ env.REPO_NAME }}/build/${{ env.ARTIFACT_NAME }}"
-          "${{ needs.check.outputs.description }}"
+          "#macOS"
 
       - name: Package update.
         if: >
