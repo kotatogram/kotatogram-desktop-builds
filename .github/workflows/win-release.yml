@@ -465,7 +465,6 @@ jobs:
       - name: Upload artifact.
         uses: actions/upload-artifact@v2
         if: env.ONLY_CACHE == 'false'
-        working-directory: ${{ github.workspace }}
         with:
           path: ./${{ env.REPO_NAME }}/artifact/Kotatogram
           name: Binary
