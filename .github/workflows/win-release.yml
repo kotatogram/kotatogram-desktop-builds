@@ -39,14 +39,12 @@ jobs:
     runs-on: windows-latest
     env:
       SDK: "10.0.18362.0"
-      VC: "call vcvars32.bat && cd Libraries"
       GIT: "https://github.com"
-      QT: "5_15_2"
       QT_VER: "5.15.2"
       OPENSSL_VER: "1_1_1"
       ONLY_CACHE: "false"
-      MANUAL_CACHING: "2"
-      DOC_PATH: "docs/building-win.md"
+      MANUAL_CACHING: "0"
+      PREPARE_PATH: "Telegram/build/prepare/prepare.py"
       REPO_NAME: "kotatogram-desktop"
       REPO_CHECKOUT_NAME: "kotatogram/kotatogram-desktop"
       AUTO_CACHING: "1"
@@ -54,6 +52,7 @@ jobs:
     defaults:
       run:
         shell: cmd
+        working-directory: Libraries
 
     steps:
       - name: Allow long file paths.
@@ -75,19 +74,27 @@ jobs:
 
       - name: Parse current version.
         shell: bash
+        working-directory: ${{ github.workspace }}
         run: ./buildscripts/scripts/parse_version.sh
 
       - name: Setting up updater keys.
         if: >
           needs.check.outputs.update == 'true'
           && needs.check.outputs.packer == 'true'
+        working-directory: ${{ github.workspace }}
         env:
           PACKER_PRIVATE_KEY: ${{ secrets.PACKER_PRIVATE_KEY }}
           PACKER_PRIVATE_BETA_KEY: ${{ secrets.PACKER_PRIVATE_BETA_KEY }}
         run: python buildscripts/scripts/updater_keys.py
 
+      - uses: ilammy/msvc-dev-cmd@v1.9.0
+        name: x86 Native Tools Command Prompt.
+        with:
+          arch: win32
+
       - name: Set up environment paths.
         shell: bash
+        working-directory: ${{ github.workspace }}
         run: |
           echo "C:\\Strawberry\\perl\\bin\\" >> $GITHUB_PATH
           echo "C:\\Program Files\\NASM\\" >> $GITHUB_PATH
@@ -98,6 +105,8 @@ jobs:
           p=`pwd | sed 's#^/[d]#d:#g' |sed 's#/#\\\\#g'`
           echo "LibrariesPath=$p" >> $GITHUB_ENV
 
+          echo "QT=${QT_VER//./_}" >> $GITHUB_ENV
+
       - name: Save msbuild version.
         run: |
           call vcvars32.bat
@@ -105,6 +114,7 @@ jobs:
 
       - name: Generate cache key.
         shell: bash
+        working-directory: ${{ github.workspace }}
         run: |
           curl -o $LibrariesPath/tg_owt-version.json https://api.github.com/repos/desktop-app/tg_owt/git/refs/heads/master
           curl -o $LibrariesPath/tg_angle-version.json https://api.github.com/repos/desktop-app/tg_angle/git/refs/heads/master
@@ -116,7 +126,10 @@ jobs:
           echo "CACHE_KEY=`md5sum CACHE_KEY.txt | awk '{ print $1 }'`" >> $GITHUB_ENV
 
       - name: Choco installs.
-        run: choco install --no-progress -y nasm yasm jom ninja
+        run: |
+          choco install --allow-empty-checksums --no-progress -y yasm
+          choco install --no-progress -y nasm jom ninja
+          python -m pip install pywin32
 
       - name: NuGet sources.
         run: |
@@ -125,12 +138,13 @@ jobs:
 
       - name: Patches.
         shell: bash
+        working-directory: ${{ github.workspace }}
         run: |
           echo "Find necessary commit from doc."
-          checkoutCommit=$(grep -A 1 "cd patches" $REPO_NAME/$DOC_PATH | sed -n 2p)
+          checkoutCommit=$(grep -A 1 "cd patches" $REPO_NAME/$PREPARE_PATH | sed -n 2p)
           cd $LibrariesPath
           git clone $GIT/desktop-app/patches.git
-          cd Patches
+          cd patches
           eval $checkoutCommit
 
       - name: Find any version of Python 2.
@@ -147,8 +161,6 @@ jobs:
 
       - name: LZMA.
         run: |
-          %VC%
-
           git clone %GIT%/telegramdesktop/lzma.git
           cd lzma
           cd C\Util\LzmaLib
@@ -159,38 +171,33 @@ jobs:
         if: ${{ needs.check.outputs.cache }}
         uses: actions/cache@v2
         with:
-          path: ${{ env.LibrariesPath }}/openssl_${{ env.OPENSSL_VER }}
+          path: ${{ env.LibrariesPath }}/openssl
           key: ${{ runner.OS }}-${{ env.CACHE_KEY }}-${{ env.OPENSSL_VER }}
       - name: OpenSSL.
         if: steps.cache-openssl.outputs.cache-hit != 'true'
         run: |
-          %VC%
-
-          git clone %GIT%/openssl/openssl.git openssl_%OPENSSL_VER%
-          cd openssl_%OPENSSL_VER%
-          git checkout OpenSSL_%OPENSSL_VER%-stable
+          git clone -b OpenSSL_%OPENSSL_VER%-stable %GIT%/openssl/openssl.git
+          cd openssl
           perl Configure no-shared no-tests debug-VC-WIN32
           nmake
-          mkdir out32.dbg
-          move libcrypto.lib out32.dbg
-          move libssl.lib out32.dbg
-          move ossl_static.pdb out32.dbg\ossl_static
+          mkdir out.dbg
+          move libcrypto.lib out.dbg
+          move libssl.lib out.dbg
+          move ossl_static.pdb out.dbg\ossl_static
           nmake clean
-          move out32.dbg\ossl_static out32.dbg\ossl_static.pdb
+          move out.dbg\ossl_static out.dbg\ossl_static.pdb
           perl Configure no-shared no-tests VC-WIN32
           nmake
-          mkdir out32
-          move libcrypto.lib out32
-          move libssl.lib out32
-          move ossl_static.pdb out32
+          mkdir out
+          move libcrypto.lib out
+          move libssl.lib out
+          move ossl_static.pdb out
 
           rmdir /S /Q test
           rmdir /S /Q .git
 
       - name: Zlib.
         run: |
-          %VC%
-
           git clone %GIT%/telegramdesktop/zlib.git
           cd zlib
           git checkout tdesktop
@@ -200,8 +207,6 @@ jobs:
       - name: MozJPEG.
         shell: cmd
         run: |
-          %VC%
-
           git clone -b v4.0.1-rc2 %GIT%/mozilla/mozjpeg.git
           cd mozjpeg
           cmake . ^
@@ -221,8 +226,6 @@ jobs:
       - name: OpenAL Soft.
         if: steps.cache-openal.outputs.cache-hit != 'true'
         run: |
-          %VC%
-
           git clone -b openal-soft-1.21.0 --depth=1 %GIT%/kcat/openal-soft.git
           cd openal-soft\build
           cmake .. ^
@@ -244,19 +247,18 @@ jobs:
       - name: Opus.
         if: steps.cache-opus.outputs.cache-hit != 'true'
         run: |
-          %VC%
-
-          git clone %GIT%/telegramdesktop/opus.git
+          git clone -b v1.3.1 %GIT%/xiph/opus.git
           cd opus
-          git checkout tdesktop
-          cd win32\VS2015
-          msbuild -m opus.sln /property:Configuration=Release /property:Platform="Win32"
+          cmake -B out . ^
+          -A Win32 ^
+          -DCMAKE_INSTALL_PREFIX=%LibrariesPath%/local/opus ^
+          -DCMAKE_C_FLAGS_DEBUG="/MTd /Zi /Ob0 /Od /RTC1" ^
+          -DCMAKE_C_FLAGS_RELEASE="/MT /O2 /Ob2 /DNDEBUG"
+          cmake --build out --config Release
+          cmake --install out --config Release
 
       - name: Rnnoise.
-        shell: cmd
         run: |
-          %VC%
-
           git clone %GIT%/desktop-app/rnnoise.git
           mkdir rnnoise\out
           cd rnnoise\out
@@ -273,7 +275,6 @@ jobs:
       - name: FFmpeg.
         if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         run: |
-          %VC%
           choco install --no-progress -y msys2
 
           git clone %GIT%/FFmpeg/FFmpeg.git ffmpeg
@@ -294,8 +295,6 @@ jobs:
       - name: Angle.
         if: steps.cache-angle.outputs.cache-hit != 'true'
         run: |
-          %VC%
-
           git clone --recursive %GIT%/desktop-app/tg_angle.git
           mkdir tg_angle\out\Release
           cd tg_angle\out\Release
@@ -322,19 +321,18 @@ jobs:
       - name: Configure Qt 5.15.2.
         if: steps.cache-qt.outputs.cache-hit != 'true'
         run: |
-          %VC%
-
           git clone git://code.qt.io/qt/qt5.git qt_%QT%
           cd qt_%QT%
-          perl init-repository --module-subset=qtbase,qtimageformats
+          perl init-repository --module-subset=qtbase,qtimageformats,qtsvg
           git checkout v%QT_VER%
           git submodule update qtbase
           git submodule update qtimageformats
+          git submodule update qtsvg
           cd qtbase
           for /r %%i in (..\..\patches\qtbase_%QT%\*) do git apply %%i
           cd ..
 
-          SET SSL=%LibrariesPath%\openssl_%OPENSSL_VER%
+          SET SSL=%LibrariesPath%\openssl
           SET SSL_LIBS=libcrypto.lib Ws2_32.lib Gdi32.lib Advapi32.lib Crypt32.lib User32.lib
 
           SET ANGLE=%LibrariesPath%\tg_angle
@@ -361,8 +359,8 @@ jobs:
           QMAKE_LIBS_EGL_RELEASE="%ANGLE%\out\Release\tg_angle.lib %ZLIB%\ZlibStatReleaseWithoutAsm\zlibstat.lib %ANGLE_LIBS% Gdi32.lib User32.lib" ^
           -openssl-linked ^
           -I "%SSL%\include" ^
-          OPENSSL_LIBS_DEBUG="%SSL%\out32.dbg\libssl.lib %SSL%\out32.dbg\%SSL_LIBS%" ^
-          OPENSSL_LIBS_RELEASE="%SSL%\out32\libssl.lib %SSL%\out32\%SSL_LIBS%" ^
+          OPENSSL_LIBS_DEBUG="%SSL%\out.dbg\libssl.lib %SSL%\out.dbg\%SSL_LIBS%" ^
+          OPENSSL_LIBS_RELEASE="%SSL%\out\libssl.lib %SSL%\out\%SSL_LIBS%" ^
           -I "%LibrariesPath%\mozjpeg" ^
           LIBJPEG_LIBS_DEBUG="%LibrariesPath%\mozjpeg\Debug\jpeg-static.lib" ^
           LIBJPEG_LIBS_RELEASE="%LibrariesPath%\mozjpeg\Release\jpeg-static.lib" ^
@@ -374,7 +372,6 @@ jobs:
       - name: Qt 5.15.2 build.
         if: steps.cache-qt.outputs.cache-hit != 'true'
         run: |
-          %VC%
           cd qt_%QT%
 
           jom -j%NUMBER_OF_PROCESSORS%
@@ -392,8 +389,6 @@ jobs:
       - name: WebRTC.
         if: steps.cache-webrtc.outputs.cache-hit != 'true'
         run: |
-          %VC%
-
           git clone --recursive %GIT%/desktop-app/tg_owt.git
           mkdir tg_owt\out\Release
           cd tg_owt\out\Release
@@ -402,7 +397,7 @@ jobs:
           -DTG_OWT_SPECIAL_TARGET=win ^
           -DTG_OWT_BUILD_AUDIO_BACKENDS=OFF ^
           -DTG_OWT_LIBJPEG_INCLUDE_PATH=%cd%/../../../mozjpeg ^
-          -DTG_OWT_OPENSSL_INCLUDE_PATH=%cd%/../../../openssl_%OPENSSL_VER%/include ^
+          -DTG_OWT_OPENSSL_INCLUDE_PATH=%cd%/../../../openssl/include ^
           -DTG_OWT_OPUS_INCLUDE_PATH=%cd%/../../../opus/include ^
           -DTG_OWT_FFMPEG_INCLUDE_PATH=%cd%/../../../ffmpeg ^
           ../..
@@ -418,6 +413,7 @@ jobs:
 
       - name: Kotatogram Desktop build.
         if: env.ONLY_CACHE == 'false'
+        working-directory: ${{ github.workspace }}
         env:
           API_ID: ${{ secrets.API_ID }}
           API_HASH: ${{ secrets.API_HASH }}
@@ -449,6 +445,7 @@ jobs:
 
       - name: Move artifact.
         if: env.ONLY_CACHE == 'false'
+        working-directory: ${{ github.workspace }}
         shell: bash
         env:
           tag_name: ${{ needs.check.outputs.display_version }}
@@ -468,6 +465,7 @@ jobs:
       - name: Upload artifact.
         uses: actions/upload-artifact@v2
         if: env.ONLY_CACHE == 'false'
+        working-directory: ${{ github.workspace }}
         with:
           path: ./${{ env.REPO_NAME }}/artifact/Kotatogram
           name: Binary
@@ -476,12 +474,14 @@ jobs:
         if: >
           env.ONLY_CACHE == 'false'
           && needs.check.outputs.telegram == 'true'
+        working-directory: ${{ github.workspace }}
         run: pip install telethon cryptg
 
       - name: Upload binary to Telegram.
         if: >
           env.ONLY_CACHE == 'false'
           && needs.check.outputs.telegram == 'true'
+        working-directory: ${{ github.workspace }}
         env:
           TELETHON_API_ID: ${{ secrets.TELETHON_API_ID }}
           TELETHON_API_HASH: ${{ secrets.TELETHON_API_HASH }}
@@ -497,6 +497,7 @@ jobs:
           env.ONLY_CACHE == 'false'
           && needs.check.outputs.installer == 'true'
           && needs.check.outputs.update == 'true'
+        working-directory: ${{ github.workspace }}
         shell: cmd
         run: >
           iscc
@@ -510,6 +511,7 @@ jobs:
         if: >
           env.ONLY_CACHE == 'false'
           && needs.check.outputs.installer == 'true'
+        working-directory: ${{ github.workspace }}
         with:
           path: ./${{ env.REPO_NAME }}/artifact/Kotatogram/ksetup.${{ env.VERSION_STR_FULL }}.exe
           name: Installer
@@ -520,6 +522,7 @@ jobs:
           && needs.check.outputs.telegram == 'true'
           && needs.check.outputs.installer == 'true'
           && needs.check.outputs.update == 'true'
+        working-directory: ${{ github.workspace }}
         env:
           TELETHON_API_ID: ${{ secrets.TELETHON_API_ID }}
           TELETHON_API_HASH: ${{ secrets.TELETHON_API_HASH }}
@@ -535,6 +538,7 @@ jobs:
           env.ONLY_CACHE == 'false'
           && needs.check.outputs.update == 'true'
           && needs.check.outputs.packer == 'true'
+        working-directory: ${{ github.workspace }}
         shell: bash
         run: |
           cd $REPO_NAME
@@ -551,6 +555,7 @@ jobs:
           env.ONLY_CACHE == 'false'
           && needs.check.outputs.update == 'true'
           && needs.check.outputs.packer == 'true'
+        working-directory: ${{ github.workspace }}
         with:
           path: ./${{ env.REPO_NAME }}/tupdate${{ env.VERSION_NUM }}
           name: Update file
@@ -561,6 +566,7 @@ jobs:
           && needs.check.outputs.update == 'true'
           && needs.check.outputs.packer == 'true'
           && needs.check.outputs.telegram == 'true'
+        working-directory: ${{ github.workspace }}
         env:
           TELETHON_API_ID: ${{ secrets.TELETHON_API_ID }}
           TELETHON_API_HASH: ${{ secrets.TELETHON_API_HASH }}
