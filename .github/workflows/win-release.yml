@@ -511,7 +511,6 @@ jobs:
         if: >
           env.ONLY_CACHE == 'false'
           && needs.check.outputs.installer == 'true'
-        working-directory: ${{ github.workspace }}
         with:
           path: ./${{ env.REPO_NAME }}/artifact/Kotatogram/ksetup.${{ env.VERSION_STR_FULL }}.exe
           name: Installer
@@ -555,7 +554,6 @@ jobs:
           env.ONLY_CACHE == 'false'
           && needs.check.outputs.update == 'true'
           && needs.check.outputs.packer == 'true'
-        working-directory: ${{ github.workspace }}
         with:
           path: ./${{ env.REPO_NAME }}/tupdate${{ env.VERSION_NUM }}
           name: Update file
