@@ -1,4 +1,4 @@
-name: Release MacOS.
+name: MacOS.
 
 on: [push]
 
@@ -76,7 +76,7 @@ jobs:
           echo $MANUAL_CACHING >> CACHE_KEY.txt
           echo "$GITHUB_WORKSPACE" >> CACHE_KEY.txt
           if [ "$AUTO_CACHING" == "1" ]; then
-            thisFile=buildscripts/.github/workflows/mac-release.yml
+            thisFile=buildscripts/.github/workflows/mac.yml
             echo `md5 -q $thisFile` >> CACHE_KEY.txt
           fi
           echo "CACHE_KEY=`md5 -q CACHE_KEY.txt`" >> $GITHUB_ENV
