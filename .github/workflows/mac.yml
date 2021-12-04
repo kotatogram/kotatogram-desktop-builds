@@ -135,7 +135,6 @@ jobs:
           --disable-protocols \
           --disable-devices \
           --disable-filters \
-          --disable-iconv \
           --enable-audiotoolbox \
           --enable-videotoolbox \
           --enable-libopus \
