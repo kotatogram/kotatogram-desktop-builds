@@ -116,12 +116,13 @@ jobs:
           -DCMAKE_EXE_LINKER_FLAGS="-s" \
           -DTDESKTOP_API_ID=${API_ID} \
           -DTDESKTOP_API_HASH=${API_HASH} \
+          -DDESKTOP_APP_USE_PACKAGED=OFF \
           -DDESKTOP_APP_DISABLE_AUTOUPDATE=${UPDDEFINE} \
           -DKTGDESKTOP_ENABLE_PACKER=${PACKERDEFINE}
 
-          cmake --build ../out -config Release --parellel
+          cmake --build ../out --config Release --parellel
 
-          cd ../out
+          cd ../out/Release
           codesign --remove-signature Kotatogram.app
 
           tag_name=${{ needs.check.outputs.display_version }}
@@ -136,7 +137,7 @@ jobs:
         if: env.ONLY_CACHE == 'false'
         uses: actions/upload-artifact@v2
         with:
-          path: ./${{ env.REPO_NAME }}/out/${{ env.ARTIFACT_NAME }}
+          path: ./${{ env.REPO_NAME }}/out/Release/${{ env.ARTIFACT_NAME }}
           name: Binary
 
       - name: Install dependencies for Telegram uploader.
@@ -157,7 +158,7 @@ jobs:
         run: >
           python3 buildscripts/scripts/uploader.py
           "@ktgbuilds"
-          "${{ env.REPO_NAME }}/out/${{ env.ARTIFACT_NAME }}"
+          "${{ env.REPO_NAME }}/out/Release/${{ env.ARTIFACT_NAME }}"
           "#macOS"
 
       - name: Package update.
@@ -168,7 +169,7 @@ jobs:
         run: |
           cd $REPO_NAME
 
-          ./out/Packer -version ${{ env.VERSION_NUM }}${{ env.PACKER_BETA }} \
+          ./out/Release/Packer -version ${{ env.VERSION_NUM }}${{ env.PACKER_BETA }} \
           -path build/dmgsrc/Kotatogram.app \
           -target mac
 
