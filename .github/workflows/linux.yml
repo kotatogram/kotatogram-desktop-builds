@@ -47,6 +47,7 @@ jobs:
       ONLY_CACHE: "false"
       MANUAL_CACHING: "1"
       AUTO_CACHING: "1"
+      REPO_NAME: "kotatogram/kotatogram-desktop"
       CXX: "g++ -static-libstdc++"
 
     steps:
