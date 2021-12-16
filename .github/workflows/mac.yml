@@ -120,7 +120,7 @@ jobs:
           -DDESKTOP_APP_DISABLE_AUTOUPDATE=${UPDDEFINE} \
           -DKTGDESKTOP_ENABLE_PACKER=${PACKERDEFINE}
 
-          cmake --build ../out --config Release --parellel
+          cmake --build ../out --config Release --parallel
 
           cd ../out/Release
           codesign --remove-signature Kotatogram.app
