@@ -491,7 +491,8 @@ jobs:
           -DTDESKTOP_API_HASH=${API_HASH} \
           -DDESKTOP_APP_DISABLE_AUTOUPDATE=${UPDDEFINE} \
           -DKTGDESKTOP_ENABLE_PACKER=${PACKERDEFINE} \
-          -DDESKTOP_APP_USE_PACKAGED_LAZY=ON
+          -DDESKTOP_APP_USE_PACKAGED_LAZY=ON \
+          -DDESKTOP_APP_QT6=OFF
 
           cmake --build ../out --config Release --parallel
           DESTDIR=../AppDir cmake --install ../out --config Release
