@@ -39,13 +39,14 @@ jobs:
 
     env:
       ONLY_CACHE: "false"
-      REPO_NAME: "kotatogram/kotatogram-desktop"
+      REPO_ORG: "kotatogram"
+      REPO_NAME: "kotatogram-desktop"
 
     steps:
       - name: Clone.
         uses: actions/checkout@v2
         with:
-          repository: ${{ env.REPO_NAME }}
+          repository: ${{ env.REPO_ORG }}/${{ env.REPO_NAME }}
           submodules: recursive
           path: ${{ env.REPO_NAME }}
           ref: ${{ needs.check.outputs.ref }}

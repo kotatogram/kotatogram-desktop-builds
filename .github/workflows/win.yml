@@ -45,8 +45,8 @@ jobs:
       ONLY_CACHE: "false"
       MANUAL_CACHING: "0"
       PREPARE_PATH: "Telegram/build/prepare/prepare.py"
+      REPO_ORG: "kotatogram"
       REPO_NAME: "kotatogram-desktop"
-      REPO_CHECKOUT_NAME: "kotatogram/kotatogram-desktop"
       AUTO_CACHING: "1"
 
     defaults:
@@ -62,7 +62,7 @@ jobs:
       - name: Clone.
         uses: actions/checkout@v2
         with:
-          repository: ${{ env.REPO_CHECKOUT_NAME }}
+          repository: ${{ env.REPO_ORG }}/${{ env.REPO_NAME }}
           submodules: recursive
           path: ${{ env.REPO_NAME }}
           ref: ${{ needs.check.outputs.ref }}
