@@ -44,7 +44,7 @@ module.exports = ({github, context, currentBuild}) => {
 	function parseBuild(s) {
 		let pattern = /^(?:builds?|platforms?|OS(?:es)?):\s*(?:(linux|win(?:dows)?|mac(?:os)?)(?:,\s*(linux|win(?:dows)?|mac(?:os)?))*)$/gmi;
 		let matches = pattern.exec(s);
-		let all = ["linux", "windows", "mac"];
+		let all = ["linux", "mac"];
 		if (!matches || matches.length < 1) return all;
 
 		let builds = [];
