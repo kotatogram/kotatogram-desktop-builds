@@ -170,7 +170,7 @@ jobs:
           cd $REPO_NAME
 
           ./out/Release/Packer -version ${{ env.VERSION_NUM }}${{ env.PACKER_BETA }} \
-          -path out/Release/Kotatogram.app \
+          -path out/Release/dmgsrc/Kotatogram.app \
           -target mac
 
           tar -caf tmacupd${{ env.VERSION_NUM }}.tar.xz tmacupd${{ env.VERSION_NUM }}
