@@ -5,7 +5,7 @@ from telethon.sync import TelegramClient
 from telethon.sessions import StringSession
 
 def upload(api_id, api_hash, session, target, file, description = ""):
-    with TelegramClient(StringSession(session), api_id, api_hash) as client:
+    with TelegramClient(StringSession(session), api_id, api_hash, device_model="Kotatogram builds uploader", system_version="GitHub Actions") as client:
         client.send_file(target, file, caption=description)
 
 if __name__ == '__main__':
