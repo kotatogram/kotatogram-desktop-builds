@@ -108,7 +108,7 @@ module.exports = ({github, context, currentBuild}) => {
 	function parseCacheOnly(s) {
 		let namePattern = /^(?:only cach(?:e|ing)|cach(?:e|ing) only)$/i;
 		let result = parseBoolOption(s, namePattern);
-		return (result == -1 ? true : result)
+		return (result == -1 ? false : result)
 	}
 
 	console.log("Current description:");
