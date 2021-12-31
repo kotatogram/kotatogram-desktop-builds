@@ -100,7 +100,13 @@ module.exports = ({github, context, currentBuild}) => {
 	}
 
 	function parseCache(s) {
-		let namePattern = /^cache?$/i;
+		let namePattern = /^cach(?:e|ing)$/i;
+		let result = parseBoolOption(s, namePattern);
+		return (result == -1 ? true : result)
+	}
+
+	function parseCacheOnly(s) {
+		let namePattern = /^(?:only cach(?:e|ing)|cach(?:e|ing) only)$/i;
 		let result = parseBoolOption(s, namePattern);
 		return (result == -1 ? true : result)
 	}
@@ -127,6 +133,7 @@ module.exports = ({github, context, currentBuild}) => {
 		telegram: parseTelegramUploader(params),
 		installer: parseInstaller(params),
 		cache: parseCache(params),
+		cacheonly: parseCacheOnly(params),
 		description: description,
 	};
 
@@ -156,6 +163,7 @@ module.exports = ({github, context, currentBuild}) => {
 		console.log("::set-output name=installer::"+requestParams.installer);
 		console.log("::set-output name=description::"+requestParams.description);
 		console.log("::set-output name=cache::"+requestParams.cache);
+		console.log("::set-output name=cacheonly::"+requestParams.cacheonly);
 	} else {
 		console.log("::set-output name=build::false");
 	}

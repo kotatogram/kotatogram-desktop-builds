@@ -16,6 +16,7 @@ jobs:
       telegram: ${{ steps.parse.outputs.telegram }}
       description: ${{ steps.parse.outputs.description }}
       cache: ${{ steps.parse.outputs.cache }}
+      cacheonly: ${{ steps.parse.outputs.cacheonly }}
 
     steps:
       - name: Clone scripts.
@@ -38,7 +39,6 @@ jobs:
     runs-on: macos-latest
 
     env:
-      ONLY_CACHE: "false"
       REPO_ORG: "kotatogram"
       REPO_NAME: "kotatogram-desktop"
 
@@ -57,6 +57,7 @@ jobs:
           path: buildscripts
 
       - name: Parse current version.
+        if: needs.check.outputs.cacheonly == 'false'
         shell: bash
         run: ./buildscripts/scripts/parse_version.sh
 
@@ -73,7 +74,8 @@ jobs:
 
       - name: Setting up updater keys.
         if: >
-          needs.check.outputs.update == 'true'
+          needs.check.outputs.cacheonly == 'false'
+          && needs.check.outputs.update == 'true'
           && needs.check.outputs.packer == 'true'
         env:
           PACKER_PRIVATE_KEY: ${{ secrets.PACKER_PRIVATE_KEY }}
@@ -99,7 +101,7 @@ jobs:
           ./$REPO_NAME/Telegram/build/prepare/mac.sh silent
 
       - name: Kotatogram Desktop build.
-        if: env.ONLY_CACHE == 'false'
+        if: needs.check.outputs.cacheonly == 'false'
         env:
           API_ID: ${{ secrets.API_ID }}
           API_HASH: ${{ secrets.API_HASH }}
@@ -134,7 +136,7 @@ jobs:
           hdiutil create -volname Kotatogram -srcfolder dmgsrc -ov -format UDZO $artifact_name
 
       - name: Upload artifact.
-        if: env.ONLY_CACHE == 'false'
+        if: needs.check.outputs.cacheonly == 'false'
         uses: actions/upload-artifact@v2
         with:
           path: ./${{ env.REPO_NAME }}/out/Release/${{ env.ARTIFACT_NAME }}
@@ -142,14 +144,14 @@ jobs:
 
       - name: Install dependencies for Telegram uploader.
         if: >
-          env.ONLY_CACHE == 'false'
+          needs.check.outputs.cacheonly == 'false'
           && needs.check.outputs.telegram == 'true'
         run: |
           python3 -m pip install telethon cryptg
 
       - name: Upload binary to Telegram.
         if: >
-          env.ONLY_CACHE == 'false'
+          needs.check.outputs.cacheonly == 'false'
           && needs.check.outputs.telegram == 'true'
         env:
           TELETHON_API_ID: ${{ secrets.TELETHON_API_ID }}
@@ -163,7 +165,7 @@ jobs:
 
       - name: Package update.
         if: >
-          env.ONLY_CACHE == 'false'
+          needs.check.outputs.cacheonly == 'false'
           && needs.check.outputs.update == 'true'
           && needs.check.outputs.packer == 'true'
         run: |
@@ -179,7 +181,7 @@ jobs:
       - name: Upload update artifact.
         uses: actions/upload-artifact@v2
         if: >
-          env.ONLY_CACHE == 'false'
+          needs.check.outputs.cacheonly == 'false'
           && needs.check.outputs.update == 'true'
           && needs.check.outputs.packer == 'true'
         with:
@@ -188,7 +190,7 @@ jobs:
 
       - name: Upload update to Telegram.
         if: >
-          env.ONLY_CACHE == 'false'
+          needs.check.outputs.cacheonly == 'false'
           && needs.check.outputs.update == 'true'
           && needs.check.outputs.packer == 'true'
           && needs.check.outputs.telegram == 'true'

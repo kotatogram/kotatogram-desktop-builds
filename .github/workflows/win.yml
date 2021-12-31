@@ -17,6 +17,7 @@ jobs:
       installer: ${{ steps.parse.outputs.installer }}
       description: ${{ steps.parse.outputs.description }}
       cache: ${{ steps.parse.outputs.cache }}
+      cacheonly: ${{ steps.parse.outputs.cacheonly }}
 
     steps:
       - name: Clone scripts.
@@ -42,7 +43,6 @@ jobs:
       GIT: "https://github.com"
       QT_VER: "5.15.2"
       OPENSSL_VER: "1_1_1"
-      ONLY_CACHE: "false"
       MANUAL_CACHING: "0"
       PREPARE_PATH: "Telegram/build/prepare/prepare.py"
       REPO_ORG: "kotatogram"
@@ -68,12 +68,13 @@ jobs:
           ref: ${{ needs.check.outputs.ref }}
 
       - name: Clone scripts.
-        if: env.ONLY_CACHE == 'false'
+        if: needs.check.outputs.cacheonly == 'false'
         uses: actions/checkout@v2
         with:
           path: buildscripts
 
       - name: Parse current version.
+        if: needs.check.outputs.cacheonly == 'false'
         shell: bash
         working-directory: ${{ github.workspace }}
         run: ./buildscripts/scripts/parse_version.sh
@@ -413,7 +414,7 @@ jobs:
           move tg_owt.lib out\Release\tg_owt.lib
 
       - name: Kotatogram Desktop build.
-        if: env.ONLY_CACHE == 'false'
+        if: needs.check.outputs.cacheonly == 'false'
         working-directory: ${{ github.workspace }}
         env:
           API_ID: ${{ secrets.API_ID }}
@@ -445,7 +446,7 @@ jobs:
           cmake --build build
 
       - name: Move artifact.
-        if: env.ONLY_CACHE == 'false'
+        if: needs.check.outputs.cacheonly == 'false'
         working-directory: ${{ github.workspace }}
         shell: bash
         env:
@@ -465,21 +466,21 @@ jobs:
 
       - name: Upload artifact.
         uses: actions/upload-artifact@v2
-        if: env.ONLY_CACHE == 'false'
+        if: needs.check.outputs.cacheonly == 'false'
         with:
           path: ./${{ env.REPO_NAME }}/artifact/Kotatogram
           name: Binary
       
       - name: Install dependencies for Telegram uploader.
         if: >
-          env.ONLY_CACHE == 'false'
+          needs.check.outputs.cacheonly == 'false'
           && needs.check.outputs.telegram == 'true'
         working-directory: ${{ github.workspace }}
         run: pip install telethon cryptg
 
       - name: Upload binary to Telegram.
         if: >
-          env.ONLY_CACHE == 'false'
+          needs.check.outputs.cacheonly == 'false'
           && needs.check.outputs.telegram == 'true'
         working-directory: ${{ github.workspace }}
         env:
@@ -494,7 +495,7 @@ jobs:
 
       - name: Make installer.
         if: >
-          env.ONLY_CACHE == 'false'
+          needs.check.outputs.cacheonly == 'false'
           && needs.check.outputs.installer == 'true'
           && needs.check.outputs.update == 'true'
         working-directory: ${{ github.workspace }}
@@ -509,7 +510,7 @@ jobs:
       - name: Upload installer artifact.
         uses: actions/upload-artifact@v2
         if: >
-          env.ONLY_CACHE == 'false'
+          needs.check.outputs.cacheonly == 'false'
           && needs.check.outputs.installer == 'true'
         with:
           path: ./${{ env.REPO_NAME }}/artifact/Kotatogram/ksetup.${{ env.VERSION_STR_FULL }}.exe
@@ -517,7 +518,7 @@ jobs:
 
       - name: Upload installer to Telegram.
         if: >
-          env.ONLY_CACHE == 'false'
+          needs.check.outputs.cacheonly == 'false'
           && needs.check.outputs.telegram == 'true'
           && needs.check.outputs.installer == 'true'
           && needs.check.outputs.update == 'true'
@@ -534,7 +535,7 @@ jobs:
 
       - name: Package update.
         if: >
-          env.ONLY_CACHE == 'false'
+          needs.check.outputs.cacheonly == 'false'
           && needs.check.outputs.update == 'true'
           && needs.check.outputs.packer == 'true'
         working-directory: ${{ github.workspace }}
@@ -551,7 +552,7 @@ jobs:
       - name: Upload update artifact.
         uses: actions/upload-artifact@v2
         if: >
-          env.ONLY_CACHE == 'false'
+          needs.check.outputs.cacheonly == 'false'
           && needs.check.outputs.update == 'true'
           && needs.check.outputs.packer == 'true'
         with:
@@ -560,7 +561,7 @@ jobs:
 
       - name: Upload update to Telegram.
         if: >
-          env.ONLY_CACHE == 'false'
+          needs.check.outputs.cacheonly == 'false'
           && needs.check.outputs.update == 'true'
           && needs.check.outputs.packer == 'true'
           && needs.check.outputs.telegram == 'true'
