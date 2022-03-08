@@ -43,7 +43,7 @@ jobs:
 
     env:
       GIT: "https://github.com"
-      QT: "5_15_2"
+      QT: "6_2_3"
       CMAKE_VER: "3.21.3"
       MANUAL_CACHING: "1"
       AUTO_CACHING: "1"
@@ -73,13 +73,14 @@ jobs:
           apt-get install clang libglibmm-2.4-dev libicu-dev libssl-dev liblzma-dev zlib1g-dev \
           git wget autoconf automake build-essential libtool pkg-config bison yasm unzip python3-pip \
           libasound2-dev libpulse-dev libfuse2 libgtk-3-dev libgtk2.0-dev libatspi2.0-dev \
-          libgl1-mesa-dev libegl1-mesa-dev libxkbcommon-dev libxkbcommon-x11-dev libxcb1-dev \
-          libxcb-glx0-dev libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev \
+          libgl1-mesa-dev libegl1-mesa-dev libdrm-dev libgbm-dev libxkbcommon-dev libxkbcommon-x11-dev \
+          libxcb1-dev libxcb-glx0-dev libxcb-icccm4-dev libxcb-image0-dev libxcb-keysyms1-dev \
           libxcb-randr0-dev libxcb-record0-dev libxcb-render0-dev libxcb-render-util0-dev \
           libxcb-res0-dev libxcb-screensaver0-dev libxcb-shape0-dev libxcb-shm0-dev \
           libxcb-sync-dev libxcb-xfixes0-dev libxcb-xinerama0-dev libxcb-xkb-dev \
-          libxcb-util0-dev libx11-xcb-dev libxext-dev libxfixes-dev libxv-dev libwayland-dev \
-          libva-dev libvdpau-dev xutils-dev meson ninja-build subversion -y --force-yes && \
+          libxcb-util0-dev libx11-dev libx11-xcb-dev libxext-dev libxtst-dev libxfixes-dev \
+          libxrandr-dev libxrender-dev libxdamage-dev libxcomposite-dev libwayland-dev \
+          xutils-dev meson ninja-build subversion -y --force-yes && \
           add-apt-repository ppa:ubuntu-toolchain-r/test -y && \
           apt-get update && \
           apt-get install gcc-10 g++-10 -y && \
@@ -108,7 +109,7 @@ jobs:
 
       - name: First set up.
         run: |
-          wget -c -nv "https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage"
+          wget -c -nv "$GIT/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage"
           chmod a+x linuxdeployqt-continuous-x86_64.AppImage
 
           ./linuxdeployqt-continuous-x86_64.AppImage -version
@@ -167,18 +168,6 @@ jobs:
 
           cmake --version
 
-      - name: Extra CMake Modules.
-        run: |
-          cd $LibrariesPath
-
-          git clone -b v5.88.0 --depth=1 $GIT/KDE/extra-cmake-modules.git
-          cd extra-cmake-modules
-          cmake -B build -GNinja . -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --parallel
-          cmake --install build
-          cd ..
-          rm -rf extra-cmake-modules
-
       - name: Meson.
         run: |
           python3 -m pip install meson==0.54.0
@@ -188,7 +177,7 @@ jobs:
         run: |
           cd $LibrariesPath
 
-          wget https://github.com/ninja-build/ninja/releases/download/v1.10.0/ninja-linux.zip
+          wget $GIT/ninja-build/ninja/releases/download/v1.10.0/ninja-linux.zip
           unzip ninja-linux.zip
           chmod +x ninja
           mv ninja /usr/local/bin
@@ -223,7 +212,7 @@ jobs:
         run: |
           cd $LibrariesPath
 
-          git clone -b v1.3 --depth=1 $GIT/xiph/opus
+          git clone -b v1.3.1 --depth=1 $GIT/xiph/opus
           cd opus
           ./autogen.sh
           ./configure
@@ -232,6 +221,42 @@ jobs:
         run: |
           cd $LibrariesPath/opus
           make install
+
+      - name: VPX cache.
+        id: cache-vpx
+        uses: actions/cache@v2
+        if: ${{ needs.check.outputs.cache }}
+        with:
+          path: ${{ env.LibrariesPath }}/vpx-cache
+          key: ${{ runner.OS }}-vpx-${{ env.CACHE_KEY }}
+      - name: VPX build.
+        if: steps.cache-vpx.outputs.cache-hit != 'true'
+        run: |
+          cd $LibrariesPath
+
+          git clone -b v1.11.0 --depth=1 $GIT/webmproject/libvpx.git
+          cd libvpx
+          ./configure \
+          --prefix=/usr \
+          --disable-examples \
+          --disable-unit-tests \
+          --disable-tools \
+          --disable-docs \
+          --enable-shared \
+          --disable-static \
+          --enable-vp8 \
+          --enable-vp9 \
+          --enable-webm-io
+
+          make -j$(nproc)
+          make DESTDIR="$LibrariesPath/vpx-cache" install
+          cd ..
+          rm -rf libvpx
+      - name: VPX install.
+        run: |
+          cd $LibrariesPath
+          cp -R vpx-cache/. /
+          ldconfig
 
       - name: FFmpeg cache.
         id: cache-ffmpeg
@@ -262,10 +287,7 @@ jobs:
           --disable-filters \
           --enable-shared \
           --enable-libopus \
-          --enable-vaapi \
-          --enable-vdpau \
-          --enable-xlib \
-          --enable-libdrm \
+          --enable-libvpx \
           --enable-protocol=file \
           --enable-encoder=libopus \
           --enable-muxer=ogg \
@@ -301,141 +323,104 @@ jobs:
           cd -
           rm -rf openal-soft
 
-      - name: Wayland Protocols.
+      - name: Libepoxy.
         run: |
           cd $LibrariesPath
 
-          git clone -b 1.23 --depth=1 https://gitlab.freedesktop.org/wayland/wayland-protocols.git
-          cd wayland-protocols
-          ./autogen.sh
-          make -j$(nproc)
-          make install
+          git clone -b 1.5.9 --depth=1 $GIT/anholt/libepoxy.git
+
+          cd libepoxy
+          git apply ../patches/libepoxy.patch
+
+          meson build \
+          --buildtype=release \
+          --default-library=static \
+          -Dtests=false
+
+          meson compile -C build
+          meson install -C build
           cd ..
-          rm -rf wayland-protocols
+          rm -rf libepoxy
 
-      - name: Plasma Wayland Protocols.
-        run: |
-          cd $LibrariesPath
-
-          git clone -b v1.4.0 --depth=1 $GIT/KDE/plasma-wayland-protocols.git
-          cd plasma-wayland-protocols
-          cmake -B build -GNinja . -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --parallel
-          cmake --install build
-          cd ..
-          rm -rf plasma-wayland-protocols
-
-      - name: Qt 5.15.2 cache.
+      - name: Qt 6.2.3 cache.
         id: cache-qt
         uses: actions/cache@v2
         if: ${{ needs.check.outputs.cache }}
         with:
           path: ${{ env.LibrariesPath }}/qt-cache
-          key: ${{ runner.OS }}-qt-${{ env.CACHE_KEY }}-${{ hashFiles('**/qtbase_5_15_2/*') }}-${{ hashFiles('**/qtwayland_5_15_2/*') }}
-      - name: Qt 5.15.2 build.
+          key: ${{ runner.OS }}-qt-${{ env.CACHE_KEY }}-${{ hashFiles('**/qtbase_6_2_3/*') }}-${{ hashFiles('**/qtwayland_6_2_3/*') }}-${{ hashFiles('**/qt5compat_6_2_3/*') }}
+      - name: Qt 6.2.3 build.
         if: steps.cache-qt.outputs.cache-hit != 'true'
         run: |
           cd $LibrariesPath
 
-          git clone -b v5.15.2 --depth=1 git://code.qt.io/qt/qt5.git qt_${QT}
+          git clone -b v6.2.3 --depth=1 git://code.qt.io/qt/qt5.git qt_${QT}
           cd qt_${QT}
-          perl init-repository --module-subset=qtbase,qtwayland,qtimageformats,qtsvg,qttools,qtx11extras
+          perl init-repository --module-subset=qtbase,qtwayland,qtimageformats,qtsvg,qt5compat,qttools
           cd qtbase
           find ../../patches/qtbase_${QT} -type f -print0 | sort -z | xargs -r0 git apply
           cd ../qtwayland
           find ../../patches/qtwayland_${QT} -type f -print0 | sort -z | xargs -r0 git apply
+          cd ../qt5compat
+          find ../../patches/qt5compat_${QT} -type f -print0 | sort -z | xargs -r0 git apply
           cd ..
 
           ./configure -prefix /usr/local \
           -release \
           -opensource \
           -confirm-license \
-          -xcb \
           -qt-libpng \
           -qt-harfbuzz \
           -qt-pcre \
           -no-feature-xcb-sm \
-          -no-feature-wayland-server \
+          -no-feature-highdpiscaling \
           -openssl-linked \
-          QMAKE_CXX="$CXX" \
-          QMAKE_LINK="$CXX" \
           -nomake examples \
           -nomake tests
 
-          make -j$(nproc)
-          make INSTALL_ROOT="$LibrariesPath/qt-cache" install
+          cmake --build . --parallel
+          DESTDIR="$LibrariesPath/qt-cache" cmake --install .
           cd ..
           rm -rf qt_${QT}
-      - name: Qt 5.15.2 install.
+      - name: Qt 6.2.3 install.
         run: |
           cd $LibrariesPath
           cp -R qt-cache/. /
           ldconfig
 
-      - name: Qt Style Plugins.
+      - name: Qt6Gtk2.
         run: |
           cd $LibrariesPath
 
-          git clone --depth=1 git://code.qt.io/qt/qtstyleplugins.git
-          cd qtstyleplugins
-          find ../patches/qtstyleplugins -type f -print0 | sort -z | xargs -r0 git apply
+          git clone -b 0.1 --depth=1 $GIT/trialuser02/qt6gtk2.git
+          cd qt6gtk2
+          wget https://github.com/trialuser02/qt6gtk2/commit/3d2cf8cbade92a175b2c878090f5f44a1b8a395c.patch
+          git apply 3d2cf8cbade92a175b2c878090f5f44a1b8a395c.patch
           qmake
           make -j$(nproc)
           make install
           cd ..
-          rm -rf qtstyleplugins
+          rm -rf qt6gtk2
 
-      - name: KWayland.
+      - name: Qt6Ct.
         run: |
           cd $LibrariesPath
 
-          git clone -b v5.88.0 --depth=1 $GIT/KDE/kwayland.git
-          cd kwayland
-          cmake -B build -GNinja \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DBUILD_TESTING=OFF \
-          -DKDE_INSTALL_LIBDIR=lib
-          cmake --build build --parallel
-          cmake --install build
-          ldconfig
-          cd ..
-          rm -rf kwayland
-
-      - name: KWindowSystem.
-        run: |
-          cd $LibrariesPath
-
-          git clone -b v5.88.0 --depth=1 $GIT/KDE/kwindowsystem.git
-          cd kwindowsystem
-          cmake -B build -GNinja \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DBUILD_TESTING=OFF \
-          -DKDE_INSTALL_LIBDIR=lib
-          cmake --build build --parallel
-          cmake --install build
-          ldconfig
-          cd ..
-          rm -rf kwindowsystem
-
-      - name: Qt5Ct.
-        run: |
-          cd $LibrariesPath
-
-          svn checkout https://svn.code.sf.net/p/qt5ct/code/tags/qt5ct-1.5 qt5ct
-          cd qt5ct
+          git clone -b 0.5 --depth=1 $GIT/trialuser02/qt6ct.git
+          cd qt6ct
           cmake -B build -GNinja -DCMAKE_BUILD_TYPE=Release
           cmake --build build --parallel
           cmake --install build
           cd ..
-          rm -rf qt5ct
+          rm -rf qt6ct
 
       - name: Kvantum.
         run: |
           cd $LibrariesPath
 
-          git clone -b V0.20.2 --depth=1 $GIT/tsujan/Kvantum.git
+          git clone -b V1.0.0 --depth=1 $GIT/tsujan/Kvantum.git
           cd Kvantum/Kvantum
-          cmake -B build -GNinja -DCMAKE_BUILD_TYPE=Release
+          cmake -B build -GNinja -DCMAKE_BUILD_TYPE=Release -DENABLE_QT5=OFF
           cmake --build build --parallel
           cmake --install build
           cd ../..
@@ -456,7 +441,7 @@ jobs:
           cd tg_owt
           git init
           git remote add origin $GIT/desktop-app/tg_owt.git
-          git fetch --depth=1 origin b02478677baac6d563589f216800ff9cea0fd65c
+          git fetch --depth=1 origin 4cba1acdd718b700bb33945c0258283689d4eac7
           git reset --hard FETCH_HEAD
           git submodule init
           git submodule update
@@ -489,12 +474,12 @@ jobs:
 
           ./configure.sh \
           -DCMAKE_INSTALL_PREFIX=/usr \
+          -DCMAKE_EXE_LINKER_FLAGS="-s" \
           -DTDESKTOP_API_ID=${API_ID} \
           -DTDESKTOP_API_HASH=${API_HASH} \
           -DDESKTOP_APP_DISABLE_AUTOUPDATE=${UPDDEFINE} \
           -DKTGDESKTOP_ENABLE_PACKER=${PACKERDEFINE} \
-          -DDESKTOP_APP_USE_PACKAGED_LAZY=ON \
-          -DDESKTOP_APP_QT6=OFF
+          -DDESKTOP_APP_USE_PACKAGED_LAZY=ON
 
           cmake --build ../out --config Release --parallel
           DESTDIR=../AppDir cmake --install ../out --config Release
@@ -509,7 +494,7 @@ jobs:
           AppDir/usr/share/applications/*.desktop \
           -appimage \
           -exclude-libs=libatk-1.0.so.0,libatk-bridge-2.0.so.0,libatspi.so.0,libcairo-gobject.so.2,libcairo.so.2,libgdk-3.so.0,libgdk_pixbuf-2.0.so.0,libgdk-x11-2.0.so.0,libgmodule-2.0.so.0,libgtk-3.so.0,libgtk-x11-2.0.so.0,libpixman-1.so.0,libpng12.so.0 \
-          -extra-plugins=bearer,iconengines,imageformats,platforminputcontexts,platforms/libqwayland-egl.so,platforms/libqwayland-generic.so,platformthemes/libqgtk3.so,platformthemes/libqxdgdesktopportal.so,platformthemes/libqt5ct.so,styles/libqt5ct-style.so,styles/libkvantum.so,wayland-decoration-client,wayland-graphics-integration-client,wayland-shell-integration
+          -extra-plugins=iconengines,imageformats,platforminputcontexts,platforms/libqwayland-egl.so,platforms/libqwayland-generic.so,platforms/libqxcb.so,platformthemes/libqgtk3.so,platformthemes/libqxdgdesktopportal.so,platformthemes/libqt6ct.so,platformthemes/libqt6gtk2.so,styles/libqt6ct-style.so,styles/libqt6gtk2-style.so,styles/libkvantum.so,tls,wayland-decoration-client,wayland-graphics-integration-client,wayland-shell-integration,xcbglintegrations
 
           appimage_name=$(echo Kotatogram_Desktop*.AppImage)
           artifact_name=${{ env.VERSION_STR }}-linux.tar.xz
